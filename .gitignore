@@ -11,10 +11,9 @@ build/
 
 # Environment variables
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
+!**/.env.example
 
 # IDE
 .vscode/
@@ -40,14 +39,17 @@ pnpm-debug.log*
 coverage/
 .nyc_output/
 
-# Prisma
-packages/backend/prisma/migrations/
-
 # Docker
 docker-compose.override.yml
 
 # Turbo
 .turbo/
+
+# Uploads
+uploads/
+
+# Docs (local only, do not upload)
+docs/
 
 # Temporary
 tmp/
@@ -59,9 +61,20 @@ temp/
 .cache/
 *.cache
 
-# Docs
-docs/
-
 # Optional
 *.tgz
 *.tar.gz
+.claude
+
+# TypeScript
+*.tsbuildinfo
+
+# Local planning artifacts
+task_plan.md
+findings.md
+progress.md
+.planning/
+AGENT.md
+CLAUDE.md
+# Accidental package output
+packages/backend/packages/

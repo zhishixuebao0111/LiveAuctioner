@@ -1,0 +1,23 @@
+{
+  "name": "liveauctioner",
+  "version": "1.0.0",
+  "description": "Live auction system with real-time bidding",
+  "private": true,
+  "scripts": {
+    "dev": "node ./node_modules/turbo/bin/turbo run dev",
+    "build": "node ./node_modules/turbo/bin/turbo run build",
+    "lint": "node ./node_modules/turbo/bin/turbo run lint",
+    "test": "node ./node_modules/turbo/bin/turbo run test",
+    "db:up": "docker-compose up -d",
+    "db:down": "docker-compose down",
+    "db:generate": "pnpm --filter backend prisma generate",
+    "db:migrate": "pnpm --filter backend prisma migrate dev"
+  },
+  "devDependencies": {
+    "turbo": "^1.12.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}

@@ -1,0 +1,251 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 角色枚举
+enum Role {
+  BUYER
+  SELLER
+  ADMIN
+}
+
+// 用户状态
+enum UserStatus {
+  ACTIVE
+  BANNED
+  SUSPENDED
+}
+
+// 商品状态
+enum ProductStatus {
+  DRAFT
+  REVIEWING
+  APPROVED
+  REJECTED
+  OFFLINE
+}
+
+// 拍卖状态
+enum AuctionStatus {
+  PENDING
+  ONGOING
+  ENDED
+  CANCELLED
+}
+
+// 拍卖结果
+enum AuctionResult {
+  SOLD
+  UNSOLD
+  CANCELLED
+}
+
+// 订单状态
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  SHIPPED
+  CONFIRMED
+  AUTO_CONFIRMED
+  CANCELLED
+  REFUND_PENDING
+  DISPUTED
+  REFUNDED
+}
+
+// 保证金状态
+enum DepositStatus {
+  FROZEN
+  REFUNDED
+  DEDUCTED
+}
+
+// 用户表
+model User {
+  id             String    @id @default(uuid())
+  username       String    @unique
+  password       String
+  role           Role      @default(BUYER)
+  balance        Decimal   @default(0) @db.Decimal(10, 2)
+  frozenBalance  Decimal   @default(0) @db.Decimal(10, 2)
+  creditScore    Int       @default(100)
+  violationCount Int       @default(0)
+  status         UserStatus @default(ACTIVE)
+  banReason      String?
+  banUntil       DateTime?
+  bannedBy       String?
+  bannedAt       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // 关联
+  products       Product[]
+  auctions       Auction[] @relation("SellerAuctions")
+  currentAuctions Auction[] @relation("CurrentBidder")
+  bids           Bid[]
+  orders         Order[]   @relation("BuyerOrders")
+  sellerOrders   Order[]   @relation("SellerOrders")
+  deposits       Deposit[]
+  creditLogs     CreditLog[]
+  addresses      Address[]
+  favorites      Favorite[]
+}
+
+// 商品表
+model Product {
+  id            String        @id @default(uuid())
+  sellerId      String
+  name          String
+  description   String?
+  images        String[]
+  category      String
+  status        ProductStatus @default(DRAFT)
+  reviewNote    String?
+  reviewedAt    DateTime?
+  reviewedBy    String?
+  allowResubmit Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // 关联
+  seller        User          @relation(fields: [sellerId], references: [id])
+  auctions      Auction[]
+}
+
+// 拍卖表
+model Auction {
+  id             String        @id @default(uuid())
+  productId      String
+  sellerId       String
+  startPrice     Decimal       @db.Decimal(10, 2)
+  reservePrice   Decimal?      @db.Decimal(10, 2)
+  minIncrement   Decimal       @default(1) @db.Decimal(10, 2)
+  startTime      DateTime?
+  endTime        DateTime?
+  status         AuctionStatus @default(PENDING)
+  result         AuctionResult?
+  currentPrice   Decimal       @default(0) @db.Decimal(10, 2)
+  currentBidderId String?
+  bidCount       Int           @default(0)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  // 关联
+  product        Product       @relation(fields: [productId], references: [id])
+  seller         User          @relation("SellerAuctions", fields: [sellerId], references: [id])
+  currentBidder  User?         @relation("CurrentBidder", fields: [currentBidderId], references: [id])
+  bids           Bid[]
+  orders         Order[]
+  deposits       Deposit[]
+  favorites      Favorite[]
+}
+
+// 出价记录表
+model Bid {
+  id        String   @id @default(uuid())
+  auctionId String
+  bidderId  String
+  price     Decimal  @db.Decimal(10, 2)
+  bidTime   DateTime @default(now())
+  isValid   Boolean  @default(true)
+
+  // 关联
+  auction   Auction  @relation(fields: [auctionId], references: [id])
+  bidder    User     @relation(fields: [bidderId], references: [id])
+}
+
+// 订单表
+model Order {
+  id             String      @id @default(uuid())
+  auctionId      String
+  buyerId        String
+  sellerId       String
+  finalPrice     Decimal     @db.Decimal(10, 2)
+  status         OrderStatus @default(PENDING_PAYMENT)
+  paymentTime    DateTime?
+  shippedAt      DateTime?
+  autoConfirmAt  DateTime?
+  refundReason   String?
+  disputeReason  String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  // 关联
+  auction        Auction     @relation(fields: [auctionId], references: [id])
+  buyer          User        @relation("BuyerOrders", fields: [buyerId], references: [id])
+  seller         User        @relation("SellerOrders", fields: [sellerId], references: [id])
+}
+
+// 保证金表
+model Deposit {
+  id        String        @id @default(uuid())
+  userId    String
+  auctionId String
+  amount    Decimal       @db.Decimal(10, 2)
+  status    DepositStatus @default(FROZEN)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  // 关联
+  user      User          @relation(fields: [userId], references: [id])
+  auction   Auction       @relation(fields: [auctionId], references: [id])
+}
+
+// 信用记录表
+model CreditLog {
+  id             String   @id @default(uuid())
+  userId         String
+  change         Int
+  reason         String
+  relatedOrderId String?
+  createdAt      DateTime @default(now())
+
+  // 关联
+  user           User     @relation(fields: [userId], references: [id])
+}
+
+// 审核操作日志表
+model AuditLog {
+  id         String   @id @default(uuid())
+  targetType String
+  targetId   String
+  action     String
+  reason     String?
+  operatorId String
+  createdAt  DateTime @default(now())
+}
+
+// 地址表
+model Address {
+  id          String   @id @default(uuid())
+  userId      String
+  name        String
+  phone       String
+  province    String
+  city        String
+  district    String
+  detail      String
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// 收藏表
+model Favorite {
+  id          String   @id @default(uuid())
+  userId      String
+  auctionId   String
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  auction     Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, auctionId])
+}
